@@ -1,0 +1,55 @@
+---
+// Easter-egg terminal. Opens with the ` key or the >_ button.
+---
+
+<div class="term-wrap" data-terminal hidden>
+  <div class="term box" role="dialog" aria-label="Terminal" aria-modal="true">
+    <div class="term-bar mono">
+      <span>hex3961@portfolio: ~</span>
+      <button data-close-terminal aria-label="Close terminal">✕</button>
+    </div>
+    <div class="term-out mono" data-term-out></div>
+    <form class="term-in mono" data-term-form>
+      <span>$</span>
+      <input data-term-input autocomplete="off" spellcheck="false" aria-label="Command" />
+    </form>
+  </div>
+</div>
+
+<style>
+  .term-wrap {
+    position: fixed; inset: 0; z-index: 100;
+    display: grid; place-items: center;
+    padding: 16px;
+    background: rgba(11, 11, 15, .55);
+  }
+  .term-wrap[hidden] { display: none; }
+  .term {
+    width: min(760px, 100%);
+    background: var(--black);
+    color: var(--lime);
+    box-shadow: 12px 12px 0 var(--pink);
+  }
+  .term-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px; background: var(--lime); color: var(--black); font-weight: 700; font-size: .85rem;
+  }
+  .term-bar button { border: 3px solid var(--black); background: var(--cream); color: var(--black); cursor: pointer; font-weight: 700; }
+  .term-out {
+    height: min(52vh, 420px);
+    overflow-y: auto;
+    padding: 14px 16px 0;
+    font-size: .9rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .term-out :global(.c) { color: var(--cream); }
+  .term-out :global(.p) { color: var(--pink); }
+  .term-out :global(.y) { color: var(--yellow); }
+  .term-out :global(a) { color: var(--cyan); }
+  .term-in { display: flex; gap: 10px; padding: 12px 16px 16px; font-size: .95rem; }
+  .term-in input {
+    flex: 1; min-width: 0; border: 0; outline: 0;
+    background: transparent; color: var(--cream); font: inherit; caret-color: var(--lime);
+  }
+</style>

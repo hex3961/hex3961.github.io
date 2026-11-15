@@ -1,0 +1,49 @@
+---
+// Spray mode: a canvas the size of the whole page that visitors can tag.
+---
+
+<canvas class="spray-layer" data-spray-canvas aria-hidden="true"></canvas>
+
+<div class="spray-dock box" data-spray-dock hidden>
+  <span class="mono dock-title">SPRAY MODE · drag to paint</span>
+  <div class="swatches">
+    {['#ff2e88', '#b8ff1f', '#2f5bff', '#ff6b1a', '#ffe14d', '#19e3ff', '#8b3dff', '#0b0b0f', '#fffdf8'].map((c, i) => (
+      <button class={`sw ${i === 0 ? 'on' : ''}`} style={`background:${c}`} data-color={c} aria-label={`Colour ${c}`}></button>
+    ))}
+  </div>
+  <label class="mono size">nozzle <input type="range" min="10" max="80" value="32" data-spray-size /></label>
+  <button class="btn small ghost" data-spray-clear>Wipe</button>
+  <button class="btn small pink" data-toggle-spray>Done</button>
+</div>
+
+<style>
+  .spray-layer {
+    position: absolute;
+    top: 0; left: 0;
+    z-index: 40;
+    pointer-events: none;
+  }
+  :global(body.spraying) .spray-layer { pointer-events: auto; cursor: crosshair; touch-action: none; }
+  .spray-dock {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    z-index: 60;
+    transform: translateX(-50%);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 12px 14px;
+    width: max-content;
+    max-width: calc(100% - 32px);
+  }
+  .spray-dock[hidden] { display: none; }
+  .dock-title { font-size: .8rem; font-weight: 700; }
+  .swatches { display: flex; gap: 6px; }
+  .sw { width: 26px; height: 26px; border: 3px solid var(--ink); cursor: pointer; padding: 0; }
+  .sw.on { outline: 3px solid var(--ink); outline-offset: 2px; transform: scale(1.12); }
+  .size { display: flex; align-items: center; gap: 8px; font-size: .8rem; font-weight: 700; }
+  .size input { accent-color: var(--pink); width: 90px; }
+</style>

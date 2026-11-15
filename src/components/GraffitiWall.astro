@@ -1,0 +1,390 @@
+---
+// Procedural graffiti wall, built from two parallax layers: faded old paint
+// at the back, fresh pieces up front. A seeded random generator makes the
+// wall identical on every build; change SEED to repaint it.
+const SEED = 3961;
+
+function mulberry32(a) {
+  return () => {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rng = mulberry32(SEED);
+const pick = (arr) => arr[Math.floor(rng() * arr.length)];
+const between = (a, b) => a + rng() * (b - a);
+const n1 = (v) => v.toFixed(1);
+
+const INK = '#0b0b0f';
+const C = ['#ff2e88', '#b8ff1f', '#2f5bff', '#ff6b1a', '#ffe14d', '#19e3ff', '#8b3dff'];
+let uid = 0;
+
+const mistFilter = (id, sd) =>
+  `<filter id="${id}" x="-40%" y="-60%" width="180%" height="220%"><feGaussianBlur stdDeviation="${n1(sd)}"/></filter>`;
+
+// Drips running out of the bottom of letters: ink outline, then paint.
+function dripLines(cx, spread, y0, S, color, count) {
+  let out = '';
+  for (let k = 0; k < count; k++) {
+    const x = cx + between(-spread, spread);
+    const len = between(S * 0.25, S * 0.8);
+    const w = between(S * 0.025, S * 0.05);
+    out += `<g class="dr" style="--dd:${n1(between(0, 0.8))}s">` +
+      `<line x1="${n1(x)}" y1="${n1(y0)}" x2="${n1(x)}" y2="${n1(y0 + len)}" stroke="${INK}" stroke-width="${n1(w + S * 0.04)}" stroke-linecap="round"/>` +
+      `<line x1="${n1(x)}" y1="${n1(y0)}" x2="${n1(x)}" y2="${n1(y0 + len)}" stroke="${color}" stroke-width="${n1(w)}" stroke-linecap="round"/>` +
+      `<circle cx="${n1(x)}" cy="${n1(y0 + len)}" r="${n1(w * 0.9)}" fill="${color}" stroke="${INK}" stroke-width="${n1(S * 0.02)}"/></g>`;
+  }
+  return out;
+}
+
+/* ---------- lettered kinds ---------- */
+// Made-up writer names and words, so the wall reads like a real spot
+// rather than spelling out anything about the site.
+const PIECE_WORDS = ['KAOS', 'ZEPH', 'VEXA', 'RAZE', 'OMNI', 'DUSK', 'FLUX', 'SKEW', 'NOVA', 'KROME', 'AXIS', 'VAPR', 'GRIM', 'ZYNC', 'RIOT'];
+const THROW_WORDS = ['ZAP', 'WOW', 'KO', 'RAD', 'YO', 'BOOM', 'OOF', 'POW', 'ZUK', 'MOB'];
+const TAG_WORDS = ['zeph', 'kroe', 'vexa', 'nvr', 'dusk1', 'omni', 'skew', 'rx', 'azk', 'lux', 'riot', 'echo', 'jinx', 'ozo', 'mute', 'haze', 'tekz', 'sonr'];
+const DRIP_WORDS = ['DRIP', 'MELT', 'WET', 'OOZE', 'SPILL', 'GOO'];
+
+// Pairs that read well as a fade inside letters.
+const FADES = [
+  ['#ffe14d', '#ff2e88'], ['#19e3ff', '#2f5bff'], ['#b8ff1f', '#19e3ff'], ['#ff6b1a', '#ff2e88'],
+  ['#ff2e88', '#8b3dff'], ['#ffe14d', '#ff6b1a'], ['#b8ff1f', '#2f5bff'],
+];
+
+const F_PIECE = "'Sedgwick Ave Display', 'Permanent Marker', cursive";
+const F_BUBBLE = "'Rubik Bubbles', 'Bungee', sans-serif";
+const F_TAG = ["'Sedgwick Ave Display', cursive", "'Sedgwick Ave', cursive", "'Permanent Marker', cursive"];
+const F_DRIP = "'Rubik Wet Paint', 'Permanent Marker', cursive";
+
+// Wildstyle bounce: every letter gets its own tilt and height. The same
+// lists go on every copy of the word so the layers stay lined up.
+function bounce(word, tilt, lift) {
+  const rot = [...word].map(() => n1(between(-tilt, tilt))).join(' ');
+  const dy = [...word].map((_, i) => n1(i === 0 ? 0 : between(-lift, lift))).join(' ');
+  return `rotate="${rot}" dy="${dy}"`;
+}
+
+const T = (word, font, size, x, y, extra) =>
+  `<text x="${n1(x)}" y="${n1(y)}" font-family="${font}" font-size="${n1(size)}" text-anchor="middle" ${extra}>${word}</text>`;
+
+const STAR4 = (x, y, r) =>
+  `<path d="M${n1(x)},${n1(y - r)} Q${n1(x)},${n1(y)} ${n1(x + r)},${n1(y)} Q${n1(x)},${n1(y)} ${n1(x)},${n1(y + r)} Q${n1(x)},${n1(y)} ${n1(x - r)},${n1(y)} Q${n1(x)},${n1(y)} ${n1(x)},${n1(y - r)}Z" fill="#fff" stroke="${INK}" stroke-width="${n1(r * 0.12)}"/>`;
+
+// Smooth wobbly closed blob, used for the cloud behind pieces.
+function blob(cx, cy, rx, ry, points = 14, wobble = 0.14) {
+  const pts = Array.from({ length: points }, (_, i) => {
+    const a = (i / points) * Math.PI * 2;
+    const k = 1 + between(-wobble, wobble);
+    return [cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k];
+  });
+  const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+  let d = `M${mid(pts[points - 1], pts[0]).map(n1).join(',')}`;
+  for (let i = 0; i < points; i++) {
+    const m = mid(pts[i], pts[(i + 1) % points]);
+    d += ` Q${n1(pts[i][0])},${n1(pts[i][1])} ${n1(m[0])},${n1(m[1])}`;
+  }
+  return d + 'Z';
+}
+
+// Wildstyle piece: cloud backdrop, bouncing overlapped letters, 3D
+// extrusion, split fade fill, shine, arrow and sparkles.
+function piece(S) {
+  const id = `p${uid++}`;
+  const word = pick(PIECE_WORDS);
+  const [c1, c2] = pick(FADES);
+  const ext = pick(C);
+  const W = word.length * S * 0.62 + S * 1.4;
+  const H = S * 2.1;
+  const cx = W / 2, by = H * 0.62;
+  const wild = `${bounce(word, 14, S * 0.09)} letter-spacing="${n1(-S * 0.08)}" transform="skewX(-8)"`;
+  let ex = '';
+  for (let k = 9; k >= 1; k--) {
+    ex += T(word, F_PIECE, S, cx + k * S * 0.016, by + k * S * 0.016, `${wild} fill="${k > 7 ? INK : ext}" stroke="${INK}" stroke-width="${n1(S * 0.1)}" stroke-linejoin="round"`);
+  }
+  const ax = W - S * 0.35, ay = by - S * 0.55;
+  const arc = `M${n1(ax - S * 0.5)},${n1(ay + S * 0.2)} Q${n1(ax)},${n1(ay + S * 0.25)} ${n1(ax + S * 0.15)},${n1(ay - S * 0.3)}`;
+  return {
+    w: W, h: H + S,
+    svg: `<defs>
+      <linearGradient id="${id}f" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="${c1}"/><stop offset=".55" stop-color="${c1}"/><stop offset=".56" stop-color="${c2}"/><stop offset="1" stop-color="${c2}"/>
+      </linearGradient>${mistFilter(`${id}m`, S * 0.1)}</defs>
+      <path d="${blob(cx, by - S * 0.3, W * 0.5, H * 0.42)}" fill="${pick(C)}" stroke="${INK}" stroke-width="${n1(S * 0.05)}" opacity=".9"/>
+      ${T(word, F_PIECE, S, cx, by, `${wild} fill="${c2}" stroke="${c2}" stroke-width="${n1(S * 0.35)}" filter="url(#${id}m)" opacity=".5"`)}
+      <path d="${arc}" fill="none" stroke="${INK}" stroke-width="${n1(S * 0.16)}" stroke-linecap="round"/>
+      <path d="${arc}" fill="none" stroke="${c1}" stroke-width="${n1(S * 0.08)}" stroke-linecap="round"/>
+      <path d="M${n1(ax - S * 0.05)},${n1(ay - S * 0.35)} l${n1(S * 0.32)},${n1(-S * 0.1)} l${n1(-S * 0.08)},${n1(S * 0.32)}Z" fill="${c1}" stroke="${INK}" stroke-width="${n1(S * 0.04)}" stroke-linejoin="round"/>
+      ${ex}
+      ${T(word, F_PIECE, S, cx, by, `${wild} fill="url(#${id}f)" stroke="${INK}" stroke-width="${n1(S * 0.1)}" stroke-linejoin="round" paint-order="stroke"`)}
+      ${T(word, F_PIECE, S, cx - S * 0.025, by - S * 0.03, `${wild} fill="none" stroke="#fff" stroke-width="${n1(S * 0.03)}" stroke-linecap="round" stroke-dasharray="${n1(S * 0.06)} ${n1(S * 1.3)}" opacity=".9"`)}
+      ${dripLines(cx, W * 0.3, by - S * 0.1, S, c2, 3)}
+      ${STAR4(S * 0.45, by - S * 0.85, S * 0.2)}${STAR4(W - S * 0.6, by + S * 0.15, S * 0.13)}`,
+  };
+}
+
+// Throw-up: fast bubble letters, two colours, heavy outline, blocky shadow.
+function throwup(S) {
+  const id = `t${uid++}`;
+  const word = pick(THROW_WORDS);
+  const [c1, c2] = pick(FADES);
+  const W = word.length * S * 0.8 + S;
+  const H = S * 1.6;
+  const cx = W / 2, by = S * 1.15;
+  const wild = `${bounce(word, 10, S * 0.06)} letter-spacing="${n1(-S * 0.06)}"`;
+  let ex = '';
+  for (let k = 6; k >= 1; k--) ex += T(word, F_BUBBLE, S, cx + k * S * 0.015, by + k * S * 0.015, `${wild} fill="${INK}" stroke="${INK}" stroke-width="${n1(S * 0.08)}" stroke-linejoin="round"`);
+  return {
+    w: W, h: H + S,
+    svg: `<defs><linearGradient id="${id}f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient>${mistFilter(`${id}m`, S * 0.09)}</defs>
+      ${T(word, F_BUBBLE, S, cx, by, `${wild} fill="${c1}" stroke="${c1}" stroke-width="${n1(S * 0.3)}" filter="url(#${id}m)" opacity=".45"`)}
+      ${ex}
+      ${T(word, F_BUBBLE, S, cx, by, `${wild} fill="url(#${id}f)" stroke="${INK}" stroke-width="${n1(S * 0.08)}" stroke-linejoin="round" paint-order="stroke"`)}
+      ${T(word, F_BUBBLE, S, cx - S * 0.02, by - S * 0.02, `${wild} fill="none" stroke="#fff" stroke-width="${n1(S * 0.028)}" stroke-linecap="round" stroke-dasharray="${n1(S * 0.05)} ${n1(S * 1.1)}"`)}
+      ${dripLines(cx, W * 0.32, by - S * 0.12, S, c2, 2 + Math.floor(rng() * 3))}`,
+  };
+}
+
+// Handstyle tag: one colour, overspray fuzz, flourish underline.
+function tag(S) {
+  const id = `g${uid++}`;
+  const word = pick(TAG_WORDS);
+  const c = pick(C);
+  const font = pick(F_TAG);
+  const W = word.length * S * 0.6 + S;
+  const cx = W / 2, by = S * 1.25;
+  const wild = bounce(word, 8, S * 0.08);
+  return {
+    w: W, h: S * 2.6,
+    svg: `<defs>${mistFilter(`${id}m`, S * 0.06)}</defs>
+      ${T(word, font, S, cx, by, `${wild} fill="${c}" filter="url(#${id}m)" opacity=".55"`)}
+      ${T(word, font, S, cx, by, `${wild} fill="${c}"`)}
+      <path d="M${n1(S * 0.3)},${n1(by + S * 0.15)} Q${n1(cx)},${n1(by + S * 0.55)} ${n1(W - S * 0.2)},${n1(by - S * 0.05)}" fill="none" stroke="${c}" stroke-width="${n1(S * 0.06)}" stroke-linecap="round"/>
+      ${rng() < 0.5 ? dripLines(cx, W * 0.3, by - S * 0.05, S * 0.6, c, 2) : ''}`,
+  };
+}
+
+// Letters in a melting font with an ink outline.
+function drippy(S) {
+  const word = pick(DRIP_WORDS);
+  const W = word.length * S * 0.75 + S;
+  return {
+    w: W, h: S * 2,
+    svg: T(word, F_DRIP, S, W / 2, S * 1.1, `${bounce(word, 6, S * 0.05)} fill="${pick(C)}" stroke="${INK}" stroke-width="${n1(S * 0.05)}" paint-order="stroke"`),
+  };
+}
+
+// Splatter: wobbly spiked blob plus flung droplets, with overspray.
+function splat(S) {
+  const id = `s${uid++}`;
+  const c = pick(C);
+  const n = 16 + Math.floor(rng() * 10);
+  const pts = Array.from({ length: n }, (_, i) => {
+    const a = (i / n) * Math.PI * 2;
+    const r = 45 * (i % 2 === 0 ? between(0.85, 1.35) : between(0.45, 0.7));
+    return [Math.cos(a) * r + 100, Math.sin(a) * r + 100];
+  });
+  let d = `M${n1(pts[0][0])},${n1(pts[0][1])}`;
+  for (let i = 1; i <= n; i++) {
+    const p = pts[i % n], q = pts[i - 1];
+    d += ` Q${n1(((q[0] + p[0]) / 2 - 100) * 1.15 + 100)},${n1(((q[1] + p[1]) / 2 - 100) * 1.15 + 100)} ${n1(p[0])},${n1(p[1])}`;
+  }
+  let drops = '';
+  for (let k = 0; k < 5 + rng() * 6; k++) {
+    const a = rng() * Math.PI * 2, dist = between(62, 95);
+    drops += `<circle cx="${n1(100 + Math.cos(a) * dist)}" cy="${n1(100 + Math.sin(a) * dist)}" r="${n1(between(2, 7))}" fill="${c}"/>`;
+  }
+  return {
+    w: S, h: S, vb: '0 0 200 200',
+    svg: `<defs>${mistFilter(`${id}m`, 9)}</defs><circle cx="100" cy="100" r="60" fill="${c}" filter="url(#${id}m)" opacity=".4"/><path d="${d}" fill="${c}"/>${drops}`,
+  };
+}
+
+// A band of paint with streaks running down from it.
+function dripBand(S) {
+  const c = pick(C);
+  let lines = '';
+  const count = 7 + Math.floor(rng() * 5);
+  for (let i = 0; i < count; i++) {
+    const x = 8 + i * (184 / count) + between(-4, 4), len = between(15, 120), w = between(5, 11);
+    lines += `<g class="dr" style="--dd:${n1(between(0, 0.9))}s"><line x1="${n1(x)}" y1="8" x2="${n1(x)}" y2="${n1(8 + len)}" stroke="${c}" stroke-width="${n1(w)}" stroke-linecap="round"/><circle cx="${n1(x)}" cy="${n1(8 + len + w * 0.6)}" r="${n1(w * 0.75)}" fill="${c}"/></g>`;
+  }
+  return { w: S, h: S * 0.8, vb: '0 0 200 160', svg: `<rect x="0" y="0" width="200" height="16" rx="6" fill="${c}"/>${lines}` };
+}
+
+// Buffed patch: someone rolled grey-ish paint over older work.
+function buff(S) {
+  const tone = pick(['#e2dccf', '#d9d2c3', '#e8e3d8', '#cfc8b8']);
+  let streaks = '';
+  for (let y = 10; y < 110; y += between(8, 18)) streaks += `<line x1="0" y1="${n1(y)}" x2="300" y2="${n1(y + between(-3, 3))}" stroke="#000" stroke-opacity=".05" stroke-width="${n1(between(2, 6))}"/>`;
+  return {
+    w: S, h: S * 0.45, vb: '0 0 300 120',
+    svg: `<path d="M0,6 L300,0 L296,118 L4,120Z" fill="${tone}"/>${streaks}`,
+  };
+}
+
+// Big soft spray mist.
+function haze(S) {
+  const id = `h${uid++}`;
+  return { w: S, h: S, vb: '0 0 100 100', svg: `<defs><radialGradient id="${id}"><stop offset="0" stop-color="${pick(C)}" stop-opacity=".55"/><stop offset="1" stop-color="${pick(C)}" stop-opacity="0"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#${id})"/>` };
+}
+
+const MAKERS = { piece, throwup, tag, drippy, splat, dripBand, buff, haze };
+
+/* ---------- layers: back (old, faded) to front (fresh, crisp) ---------- */
+const LAYERS = [
+  { depth: 0.05, count: 18, scale: 1.25, mix: { piece: 4, tag: 5, throwup: 2, buff: 3, haze: 2 } },
+  { depth: 0.15, count: 22, scale: 1, mix: { tag: 6, throwup: 4, piece: 3, drippy: 2, splat: 3, dripBand: 2 } },
+];
+const SIZES = {
+  piece: [110, 180], throwup: [80, 140], tag: [40, 90], drippy: [50, 90],
+  splat: [80, 220], dripBand: [120, 240], buff: [300, 620], haze: [260, 520],
+};
+
+function weighted(mix) {
+  const total = Object.values(mix).reduce((a, b) => a + b, 0);
+  let r = rng() * total;
+  for (const [k, w] of Object.entries(mix)) if ((r -= w) < 0) return k;
+  return Object.keys(mix)[0];
+}
+
+const layers = LAYERS.map((L, li) => {
+  const items = [];
+  for (let i = 0; i < L.count; i++) {
+    const kind = weighted(L.mix);
+    const [lo, hi] = SIZES[kind];
+    const g = MAKERS[kind](between(lo, hi) * L.scale);
+    const { w, h } = g;
+    const left = between(-10, 88);
+    items.push({
+      kind,
+      // Every other piece is skipped on phones to keep scrolling smooth.
+      mobile: i % 2 === 0,
+      html: `<svg width="${n1(w)}" height="${n1(h)}" viewBox="${g.vb ?? `0 0 ${n1(g.w)} ${n1(g.h)}`}" overflow="visible">${g.svg}</svg>`,
+      style: `top:${n1((i / L.count) * 100 + between(-1.5, 1.5))}%;left:${n1(left)}%;--r:${n1(kind === 'buff' || kind === 'dripBand' ? between(-4, 4) : between(-18, 14))}deg;--dl:${n1(between(0, 0.3))}s`,
+    });
+  }
+  return { ...L, li, items };
+});
+---
+
+<div class="wall" aria-hidden="true">
+  {layers.map((L) => (
+    <div class={`layer l${L.li}`} data-depth={L.depth}>
+      {L.items.map((it) => (
+        <div class={`gi k-${it.kind}${it.mobile ? '' : ' desk'}`} style={it.style} set:html={it.html} />
+      ))}
+    </div>
+  ))}
+</div>
+
+<style>
+  .wall {
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .layer {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 100%;
+    will-change: transform;
+  }
+  /* Depth: the further back, the older and fainter the paint. Only opacity
+     here, because a filter on a page-tall layer is slow on phones. */
+  .l0 { opacity: .4; }
+  .l1 { opacity: .78; }
+  /* Light buffed paint would glare on the dark wall. */
+  .k-buff { filter: var(--buff-filter, none); }
+  @media (max-width: 700px) {
+    .gi.desk { display: none; }
+  }
+
+  .gi {
+    position: absolute;
+    transform: rotate(var(--r));
+    transform-origin: top left;
+  }
+  .gi :global(svg) { display: block; }
+
+  /* Spray-in: the piece is painted left to right with overspray settling,
+     then its drips run. Triggered by .on when it scrolls into view. */
+  .gi :global(svg) {
+    clip-path: inset(-30% 110% -30% -30%);
+    filter: blur(8px);
+    opacity: 0;
+    transition:
+      clip-path .8s cubic-bezier(.6, .1, .4, 1) var(--dl),
+      filter 1s ease-out var(--dl),
+      opacity .25s linear var(--dl);
+  }
+  .gi.on :global(svg) { clip-path: inset(-30% -30% -60% -30%); filter: none; opacity: 1; }
+
+  .k-splat :global(svg), .k-haze :global(svg), .k-buff :global(svg) {
+    clip-path: none;
+    transform: scale(.15);
+    transform-origin: center;
+    transition: transform .4s cubic-bezier(.3, 1.7, .5, 1) var(--dl), opacity .2s var(--dl), filter .6s var(--dl);
+  }
+  .k-splat.on :global(svg), .k-haze.on :global(svg), .k-buff.on :global(svg) { transform: scale(1); clip-path: none; }
+
+  .gi :global(.dr) {
+    transform: scaleY(0);
+    transform-box: fill-box;
+    transform-origin: top;
+    transition: transform 2.2s cubic-bezier(.5, 0, .7, 1) calc(var(--dl) + .7s + var(--dd, 0s));
+  }
+  .gi.on :global(.dr) { transform: scaleY(1); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .gi :global(svg), .gi :global(.dr) { clip-path: none !important; filter: none !important; opacity: 1 !important; transform: none !important; transition: none !important; }
+  }
+</style>
+
+<noscript><style>.gi svg, .gi .dr { clip-path: none !important; filter: none !important; opacity: 1 !important; transform: none !important; }</style></noscript>
+
+<script>
+  const layers = [...document.querySelectorAll<HTMLElement>('.wall .layer')];
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Each layer is taller than the page by exactly how far it will drift,
+  // so the bottom of the page is still covered at full scroll.
+  let maxScroll = 0;
+  function size() {
+    const docH = document.documentElement.scrollHeight;
+    maxScroll = Math.max(0, docH - innerHeight);
+    for (const l of layers) l.style.height = `${docH + (reduced ? 0 : +l.dataset.depth! * maxScroll)}px`;
+    move();
+  }
+  function move() {
+    if (reduced) return;
+    const y = scrollY;
+    for (const l of layers) l.style.transform = `translate3d(0, ${(-y * +l.dataset.depth!).toFixed(1)}px, 0)`;
+  }
+  let queued = false;
+  addEventListener('scroll', () => {
+    if (!queued) { queued = true; requestAnimationFrame(() => { move(); queued = false; }); }
+  }, { passive: true });
+  if ('ResizeObserver' in window) new ResizeObserver(size).observe(document.querySelector('.page')!);
+  else addEventListener('resize', size);
+  addEventListener('load', size);
+  size();
+
+  // Paint each piece the first time it comes into view. Browsers without
+  // IntersectionObserver just get the finished wall.
+  const pieces = document.querySelectorAll('.wall .gi');
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) if (e.isIntersecting) { e.target.classList.add('on'); io.unobserve(e.target); }
+    }, { rootMargin: '0px 0px 5% 0px' });
+    const start = () => pieces.forEach((g) => io.observe(g));
+    // Wait for the graffiti fonts, but never longer than 1.5 s.
+    if (document.fonts?.ready) Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]).then(start);
+    else start();
+  } else {
+    pieces.forEach((g) => g.classList.add('on'));
+  }
+</script>

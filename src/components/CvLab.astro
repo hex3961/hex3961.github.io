@@ -1,0 +1,62 @@
+---
+// In-browser computer vision demo. The filters are hand-written (Sobel,
+// threshold, posterize, pixel sort) so the page needs no OpenCV.js download.
+---
+
+<div class="lab box">
+  <div class="lab-bar mono">
+    <span>cv_lab.py — running in your browser</span>
+    <span data-cv-ms>—</span>
+  </div>
+  <div class="lab-body">
+    <div class="lab-stage">
+      <canvas data-cv-canvas width="720" height="480"></canvas>
+      <video data-cv-video playsinline muted hidden></video>
+    </div>
+    <div class="lab-ctl">
+      <p class="mono lab-label">filter</p>
+      <div class="filters" role="radiogroup" aria-label="Filter">
+        <button class="f on" data-filter="edges" role="radio" aria-checked="true">Sobel edges</button>
+        <button class="f" data-filter="stencil" role="radio" aria-checked="false">Stencil</button>
+        <button class="f" data-filter="pop" role="radio" aria-checked="false">Pop-art</button>
+        <button class="f" data-filter="sort" role="radio" aria-checked="false">Pixel sort</button>
+        <button class="f" data-filter="none" role="radio" aria-checked="false">Original</button>
+      </div>
+      <label class="mono lab-label">strength <input type="range" min="10" max="90" value="45" data-cv-strength /></label>
+      <div class="lab-src">
+        <label class="btn small">📁 Your photo<input type="file" accept="image/*" data-cv-file hidden /></label>
+        <button class="btn small ghost" data-cv-cam>📷 Webcam</button>
+      </div>
+      <p class="mono lab-note">Same ideas I use in OpenCV pipelines: gradients, thresholds and colour quantisation, written by hand in ~150 lines.</p>
+    </div>
+  </div>
+</div>
+
+<style>
+  .lab { overflow: hidden; }
+  .lab-bar {
+    display: flex; justify-content: space-between; gap: 10px;
+    padding: 10px 16px; font-size: .85rem;
+    background: var(--black); color: var(--cyan);
+  }
+  .lab-body { display: grid; grid-template-columns: 1.6fr 1fr; }
+  @media (max-width: 860px) { .lab-body { grid-template-columns: 1fr; } }
+  .lab-stage { background: var(--black); border-right: var(--border); display: grid; place-items: center; }
+  @media (max-width: 860px) { .lab-stage { border-right: 0; border-bottom: var(--border); } }
+  .lab-stage canvas { width: 100%; height: auto; image-rendering: auto; }
+  .lab-ctl { padding: 20px; display: grid; gap: 14px; align-content: start; background: var(--cyan); color: var(--black); }
+  .lab-label { margin: 0; font-weight: 700; text-transform: uppercase; font-size: .8rem; display: grid; gap: 6px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; }
+  .f {
+    font: 700 .9rem var(--f-body);
+    padding: 8px 12px;
+    color: var(--black);
+    border: 3px solid var(--black);
+    background: var(--cream);
+    cursor: pointer;
+  }
+  .f.on { background: var(--black); color: var(--lime); }
+  .lab-src { display: flex; flex-wrap: wrap; gap: 10px; }
+  .lab-note { margin: 0; font-size: .8rem; background: var(--cream); border: 3px solid var(--black); padding: 10px; }
+  input[type='range'] { accent-color: var(--pink); width: 100%; }
+</style>

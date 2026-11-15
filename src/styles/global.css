@@ -1,0 +1,202 @@
+:root {
+  --ink: #0b0b0f;
+  --paper: #efeae0;
+  --white: #fffdf8;
+  --pink: #ff2e88;
+  --lime: #b8ff1f;
+  --blue: #2f5bff;
+  --orange: #ff6b1a;
+  --yellow: #ffe14d;
+  --cyan: #19e3ff;
+  --violet: #8b3dff;
+  /* Fixed colours: --black for dark panels and text on bright colours,
+     --cream for text on those dark panels. Neither changes with the theme. */
+  --black: #0b0b0f;
+  --cream: #fffdf8;
+  --shade: var(--ink);
+  --h2-bg: var(--black);
+  --h2-fg: var(--cream);
+  --grid-line: rgba(11, 11, 15, .045);
+
+  --bw: 4px;
+  --border: var(--bw) solid var(--ink);
+  --shadow: 8px 8px 0 var(--shade);
+  --shadow-lg: 14px 14px 0 var(--shade);
+
+  --f-display: 'Rubik Spray Paint', 'Permanent Marker', cursive;
+  --f-head: 'Bungee', 'Arial Black', sans-serif;
+  --f-body: 'Space Grotesk', system-ui, sans-serif;
+  --f-mono: 'JetBrains Mono', ui-monospace, monospace;
+  color-scheme: light;
+}
+
+/* Dark theme: the theme tokens flip, the fixed colours stay. It follows the
+   system setting unless the visitor picked one with the toggle. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --ink: #f1ece2; --white: #1a1920; --paper: #0f0e13;
+    --h2-bg: var(--cream); --h2-fg: var(--black);
+    --grid-line: rgba(255, 253, 248, .05);
+    --buff-filter: brightness(.22) saturate(.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --ink: #f1ece2; --white: #1a1920; --paper: #0f0e13;
+  --h2-bg: var(--cream); --h2-fg: var(--black);
+  --grid-line: rgba(255, 253, 248, .05);
+  --buff-filter: brightness(.22) saturate(.6);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  position: relative;
+  margin: 0;
+  overflow-x: hidden;
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 1.05rem;
+  line-height: 1.55;
+  /* Concrete: grain noise over a faint brick grid over paper. */
+  background-color: var(--paper);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    linear-gradient(var(--grid-line) 2px, transparent 2px),
+    linear-gradient(90deg, var(--grid-line) 2px, transparent 2px);
+  background-size: 220px 220px, 120px 60px, 120px 60px;
+}
+
+::selection { background: var(--pink); color: var(--cream); }
+
+a { color: inherit; }
+img, canvas, video { max-width: 100%; display: block; }
+[hidden] { display: none !important; }
+
+.page { position: relative; z-index: 1; }
+
+.wrap {
+  width: min(1200px, 100% - 32px);
+  margin-inline: auto;
+}
+
+/* ---------- brutal primitives ---------- */
+.box {
+  background: var(--white);
+  border: var(--border);
+  box-shadow: var(--shadow);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .5em;
+  padding: .75em 1.2em;
+  font: 400 1rem/1 var(--f-head);
+  text-decoration: none;
+  text-transform: uppercase;
+  color: var(--black);
+  background: var(--lime);
+  border: var(--border);
+  box-shadow: 5px 5px 0 var(--shade);
+  cursor: pointer;
+  transition: transform .12s, box-shadow .12s;
+}
+.btn:hover { transform: translate(-3px, -3px); box-shadow: 8px 8px 0 var(--shade); }
+.btn:active { transform: translate(5px, 5px); box-shadow: 0 0 0 var(--shade); }
+.btn.pink { background: var(--pink); color: var(--cream); }
+.btn.ink { background: var(--black); color: var(--lime); box-shadow: 5px 5px 0 var(--pink); }
+.btn.ghost { background: var(--white); color: var(--ink); }
+
+:focus-visible { outline: 4px dashed var(--blue); outline-offset: 4px; }
+
+.sticker {
+  display: inline-block;
+  padding: .3em .7em;
+  font: 400 .85rem/1 var(--f-head);
+  text-transform: uppercase;
+  color: var(--black);
+  border: 3px solid var(--black);
+  box-shadow: 4px 4px 0 var(--shade);
+  background: var(--yellow);
+}
+
+.mono { font-family: var(--f-mono); }
+
+/* Bright fills always carry dark text, in either theme. */
+.bg-pink, .bg-lime, .bg-cyan, .bg-yellow, .bg-orange, .bg-violet, .bg-blue { color: var(--black); }
+.bg-pink { background: var(--pink); }
+.bg-lime { background: var(--lime); }
+.bg-cyan { background: var(--cyan); }
+.bg-yellow { background: var(--yellow); }
+.bg-orange { background: var(--orange); }
+.bg-violet { background: var(--violet); }
+.bg-blue { background: var(--blue); }
+
+/* ---------- section headings ---------- */
+.section { padding: clamp(64px, 10vw, 120px) 0; }
+
+.sec-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 24px;
+  margin-bottom: 40px;
+}
+.sec-head h2 {
+  margin: 0;
+  padding: .15em .35em;
+  font: 400 clamp(2.2rem, 7vw, 4.8rem)/1 var(--f-head);
+  background: var(--h2-bg);
+  color: var(--h2-fg);
+  transform: rotate(-1.5deg);
+  box-shadow: 10px 10px 0 var(--pink);
+}
+.sec-head p {
+  margin: 0;
+  max-width: 46ch;
+  padding: 10px 14px;
+  font-weight: 600;
+  background: var(--white);
+  border: 3px solid var(--ink);
+}
+.sec-num {
+  font: 700 .9rem var(--f-mono);
+  padding: 4px 8px;
+  color: var(--black);
+  background: var(--lime);
+  border: 3px solid var(--black);
+}
+
+/* GitHub feed rows are injected by script, so they live here, not in scoped styles. */
+.gh-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 2px dashed rgba(255, 253, 248, .25);
+  text-decoration: none;
+  font-size: .95rem;
+}
+.gh-row:hover b { color: var(--lime); }
+.gh-row span { font: .8rem var(--f-mono); opacity: .7; white-space: nowrap; }
+.gh-all { display: inline-block; margin-top: 12px; font: 700 .85rem var(--f-mono); color: var(--cyan); }
+
+/* iOS and some Android browsers round and shade form fields by default. */
+input, textarea, select, button { -webkit-appearance: none; appearance: none; border-radius: 0; color: inherit; }
+input[type='range'] { -webkit-appearance: auto; appearance: auto; }
+select {
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%), linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+  background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%;
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+}
